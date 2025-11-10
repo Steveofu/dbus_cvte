@@ -1,0 +1,1 @@
+/usr/bin/cc  -g -O0 -DDEBUG -g   CMakeFiles/server.dir/Sources/main.c.o  -o bin/server  -ldbus-1 

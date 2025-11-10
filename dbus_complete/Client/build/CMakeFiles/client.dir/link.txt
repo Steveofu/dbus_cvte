@@ -1,0 +1,1 @@
+/usr/bin/cc  -g -O0 -DDEBUG -g   CMakeFiles/client.dir/Sources/main.c.o  -o bin/client  -ldbus-1 
