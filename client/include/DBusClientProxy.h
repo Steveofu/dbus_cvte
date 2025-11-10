@@ -3,6 +3,7 @@
 #include <dbus/dbus.h>
 #include <string>
 
+// 定义dbus协议 继承接口
 class DBusClientProxy : public ITestService {
 public:
     DBusClientProxy();

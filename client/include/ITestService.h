@@ -1,4 +1,4 @@
-#pragma once  // 建议添加，避免头文件重复包含
+#pragma once  
 #include <string>
 #include "TestInfo.h"
 
