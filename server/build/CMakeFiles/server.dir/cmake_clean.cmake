@@ -1,8 +1,6 @@
 file(REMOVE_RECURSE
   "CMakeFiles/server.dir/sources/DBusService.cpp.o"
-  "CMakeFiles/server.dir/sources/DBusService.cpp.o.d"
   "CMakeFiles/server.dir/sources/main.cpp.o"
-  "CMakeFiles/server.dir/sources/main.cpp.o.d"
   "server"
   "server.pdb"
 )
