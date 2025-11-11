@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.10)
 project(server_demo)
 
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_FLAGS_DEBUG "-g")
+
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(DBUS REQUIRED dbus-1)

@@ -1,1 +1,0 @@
-/usr/bin/cc -fPIC  -g -O0 -DDEBUG -g  -shared -Wl,-soname,libtraining.so -o lib/libtraining.so CMakeFiles/training.dir/Sources/main.c.o  -ldbus-1 

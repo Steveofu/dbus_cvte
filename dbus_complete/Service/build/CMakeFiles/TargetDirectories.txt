@@ -1,8 +1,0 @@
-/home/gxr/Desktop/project/dbusProject (another copy)/Service/build/CMakeFiles/install/strip.dir
-/home/gxr/Desktop/project/dbusProject (another copy)/Service/build/CMakeFiles/install.dir
-/home/gxr/Desktop/project/dbusProject (another copy)/Service/build/CMakeFiles/list_install_components.dir
-/home/gxr/Desktop/project/dbusProject (another copy)/Service/build/CMakeFiles/rebuild_cache.dir
-/home/gxr/Desktop/project/dbusProject (another copy)/Service/build/CMakeFiles/edit_cache.dir
-/home/gxr/Desktop/project/dbusProject (another copy)/Service/build/CMakeFiles/training.dir
-/home/gxr/Desktop/project/dbusProject (another copy)/Service/build/CMakeFiles/install/local.dir
-/home/gxr/Desktop/project/dbusProject (another copy)/Service/build/CMakeFiles/server.dir

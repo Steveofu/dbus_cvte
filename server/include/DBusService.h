@@ -28,7 +28,16 @@ private:
     DBusConnection* conn;
 
     int lastInt = 0;
+    double lastDouble = 0.0;
+    bool lastBool = 0;
+    std::string lastString="fault";
+    TestInfo lastTestInfo;
+    
 
     void broadcastInt(int v);
+    void broadcastBool(bool v);
+    void broadcastDouble(double v);
+    void broadcastString(std::string param);
+    void broadcastTestInfo(TestInfo info);
 };
 
