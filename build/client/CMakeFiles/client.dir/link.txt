@@ -1,0 +1,1 @@
+/usr/bin/c++     CMakeFiles/client.dir/sources/ClientApp.cpp.o CMakeFiles/client.dir/sources/DBusClientProxy.cpp.o CMakeFiles/client.dir/sources/lvgl_display.cpp.o CMakeFiles/client.dir/sources/main.cpp.o  -o client  -ldbus-1 

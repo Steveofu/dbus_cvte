@@ -177,6 +177,33 @@ sources/DBusClientProxy.cpp.s:
 	$(MAKE) -f CMakeFiles/client.dir/build.make CMakeFiles/client.dir/sources/DBusClientProxy.cpp.s
 .PHONY : sources/DBusClientProxy.cpp.s
 
+sources/lvgl_display.o: sources/lvgl_display.cpp.o
+
+.PHONY : sources/lvgl_display.o
+
+# target to build an object file
+sources/lvgl_display.cpp.o:
+	$(MAKE) -f CMakeFiles/client.dir/build.make CMakeFiles/client.dir/sources/lvgl_display.cpp.o
+.PHONY : sources/lvgl_display.cpp.o
+
+sources/lvgl_display.i: sources/lvgl_display.cpp.i
+
+.PHONY : sources/lvgl_display.i
+
+# target to preprocess a source file
+sources/lvgl_display.cpp.i:
+	$(MAKE) -f CMakeFiles/client.dir/build.make CMakeFiles/client.dir/sources/lvgl_display.cpp.i
+.PHONY : sources/lvgl_display.cpp.i
+
+sources/lvgl_display.s: sources/lvgl_display.cpp.s
+
+.PHONY : sources/lvgl_display.s
+
+# target to generate assembly for a file
+sources/lvgl_display.cpp.s:
+	$(MAKE) -f CMakeFiles/client.dir/build.make CMakeFiles/client.dir/sources/lvgl_display.cpp.s
+.PHONY : sources/lvgl_display.cpp.s
+
 sources/main.o: sources/main.cpp.o
 
 .PHONY : sources/main.o
@@ -219,6 +246,9 @@ help:
 	@echo "... sources/DBusClientProxy.o"
 	@echo "... sources/DBusClientProxy.i"
 	@echo "... sources/DBusClientProxy.s"
+	@echo "... sources/lvgl_display.o"
+	@echo "... sources/lvgl_display.i"
+	@echo "... sources/lvgl_display.s"
 	@echo "... sources/main.o"
 	@echo "... sources/main.i"
 	@echo "... sources/main.s"

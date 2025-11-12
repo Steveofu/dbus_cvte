@@ -1,0 +1,1 @@
+/usr/bin/c++     CMakeFiles/server.dir/sources/DBusService.cpp.o CMakeFiles/server.dir/sources/main.cpp.o  -o server  -ldbus-1 

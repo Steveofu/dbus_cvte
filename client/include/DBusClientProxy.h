@@ -2,6 +2,8 @@
 #include "ITestService.h"
 #include <dbus/dbus.h>
 #include <string>
+#include <cstring>
+#include <unistd.h>  // sleep
 
 // 定义dbus协议 继承接口
 class DBusClientProxy : public ITestService {
@@ -21,10 +23,13 @@ public:
     std::string GetTestString() override;  
     TestInfo GetTestInfo() override;
 
-    bool SendFile(unsigned char* file_buf, size_t file_size) override;  
+    bool SendFile(const std::string& file_path); // ✅ 唯一版本
+
 
 private:
     DBusConnection* conn;
     bool callBool(const char* method, bool value);
     int  callInt(const char* method);
+
+    void NotifyServiceFileChunkReceived(int seq, int len);
 };

@@ -6,6 +6,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 set(CMAKE_DEPENDS_CHECK_CXX
   "/home/stevehong/Desktop/dbus/client/sources/ClientApp.cpp" "/home/stevehong/Desktop/dbus/client/build/CMakeFiles/client.dir/sources/ClientApp.cpp.o"
   "/home/stevehong/Desktop/dbus/client/sources/DBusClientProxy.cpp" "/home/stevehong/Desktop/dbus/client/build/CMakeFiles/client.dir/sources/DBusClientProxy.cpp.o"
+  "/home/stevehong/Desktop/dbus/client/sources/lvgl_display.cpp" "/home/stevehong/Desktop/dbus/client/build/CMakeFiles/client.dir/sources/lvgl_display.cpp.o"
   "/home/stevehong/Desktop/dbus/client/sources/main.cpp" "/home/stevehong/Desktop/dbus/client/build/CMakeFiles/client.dir/sources/main.cpp.o"
   )
 set(CMAKE_CXX_COMPILER_ID "GNU")

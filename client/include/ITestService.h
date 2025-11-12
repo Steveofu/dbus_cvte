@@ -19,5 +19,8 @@ public:
     virtual std::string GetTestString() = 0;
     virtual TestInfo GetTestInfo() = 0;
     
-    virtual bool SendFile(unsigned char* file_buf, size_t file_size) = 0;
+    
+    // ✅ 新增路径版本（客户端使用）
+    virtual bool SendFile(const std::string& file_path) { return false; };
+
 };

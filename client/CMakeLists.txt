@@ -27,3 +27,4 @@ add_executable(client ${SRC})
 
 # 链接 DBus 库
 target_link_libraries(client ${DBUS_LIBRARIES})
+target_link_libraries(client rt)

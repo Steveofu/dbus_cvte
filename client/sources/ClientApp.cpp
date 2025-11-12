@@ -1,5 +1,7 @@
 #include "ClientApp.h"
 #include <iostream>
+#include <fstream>  // 需要包含这个头文件以使用 std::ifstream
+
 
 ClientApp::ClientApp(ITestService* svc) : service(svc) {}
 
@@ -16,7 +18,8 @@ void ClientApp::RunMenu() {
         std::cout << "8. Get String\n";
         std::cout << "9. Set Info\n";
         std::cout << "10. Get Info\n";
-        std::cout << "11. Exit\n";
+        std::cout << "11. Send File\n";
+        std::cout << "12. Exit\n";
 
         int op;
         std::cin >> op;
@@ -79,7 +82,20 @@ void ClientApp::RunMenu() {
                       << "Double: " << info.double_param << ", "
                       << "String: " << info.string_param << "\n";
         }
-        else if (op == 11) {  // Exit
+        else if (op == 11) {  
+            std::string file_path;
+            std::cout << "Enter file path to send: ";
+            std::cin.ignore();  // Clear leftover newline
+            std::getline(std::cin, file_path);
+            
+            // ✅ 直接调用 DBusClientProxy 的 SendFile(const std::string&)
+            if (service->SendFile(file_path)) {
+                std::cout << "[client] File sent successfully.\n";
+            } else {
+                std::cerr << "[client] Failed to send file.\n";
+            }
+        }
+        else if (op == 12) {  // Exit
             break;
         }
         else {

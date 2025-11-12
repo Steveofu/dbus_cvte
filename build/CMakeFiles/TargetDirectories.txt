@@ -1,0 +1,9 @@
+/home/stevehong/Desktop/dbus/build/CMakeFiles/rebuild_cache.dir
+/home/stevehong/Desktop/dbus/build/CMakeFiles/edit_cache.dir
+/home/stevehong/Desktop/dbus/build/server/CMakeFiles/rebuild_cache.dir
+/home/stevehong/Desktop/dbus/build/server/CMakeFiles/edit_cache.dir
+/home/stevehong/Desktop/dbus/build/server/CMakeFiles/server.dir
+/home/stevehong/Desktop/dbus/build/server/CMakeFiles/training.dir
+/home/stevehong/Desktop/dbus/build/client/CMakeFiles/rebuild_cache.dir
+/home/stevehong/Desktop/dbus/build/client/CMakeFiles/edit_cache.dir
+/home/stevehong/Desktop/dbus/build/client/CMakeFiles/client.dir

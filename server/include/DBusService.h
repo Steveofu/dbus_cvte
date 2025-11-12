@@ -21,7 +21,10 @@ public:
     TestInfo GetTestInfo() override;
 
     bool SendFile(unsigned char* file_buf, size_t file_size) override;
+    
+    bool ReceiveFileChunk(int seq, int len);
 
+    std::string compute_md5(const std::string& path);
     void StartLoop();
 
 private:

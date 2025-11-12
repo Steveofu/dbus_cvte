@@ -1,5 +1,16 @@
+#include <sys/mman.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <iostream>
+#include <fstream>
+#include <cstring>
+
 #include "DBusClientProxy.h"
 #include <iostream>
+#include <algorithm>
+
+#define SHM_NAME "/file_shm"  // 共享内存的名称
+#define SHM_SIZE 1024         // 每次传输1KB数据
 
 DBusClientProxy::DBusClientProxy() {
     DBusError err;
@@ -14,7 +25,9 @@ DBusClientProxy::DBusClientProxy() {
     }
 }
 
-DBusClientProxy::~DBusClientProxy() { }
+DBusClientProxy::~DBusClientProxy() {
+    //dbus_connection_unref(conn); // 释放 DBus 连接
+}
 
 bool DBusClientProxy::callBool(const char* method, bool value) 
 {
@@ -318,7 +331,7 @@ TestInfo DBusClientProxy::GetTestInfo() {
 
     dbus_message_unref(reply);
 
-    // ✅ 按 TestInfo.h 的字段名赋值
+    // 按 TestInfo.h 的字段名赋值
     info.bool_param = flag;
     info.int_param = number;
     info.double_param = ratio;
@@ -327,7 +340,114 @@ TestInfo DBusClientProxy::GetTestInfo() {
     return info;
 }
 
-bool DBusClientProxy::SendFile(unsigned char* file_buf, size_t file_size) {
-    std::cout << "[stub] SendFile called\n";
+
+// ------------------------------------
+// 客户端：从文件路径读取内容，分包写入共享内存并通过 D-Bus 通知服务端
+bool DBusClientProxy::SendFile(const std::string& file_path) {
+    // 1️⃣ 读取文件内容到内存
+    std::ifstream file(file_path, std::ios::binary | std::ios::ate);
+    if (!file.is_open()) {
+        std::cerr << "[client] ❌ Failed to open file: " << file_path << std::endl;
+        return false;
+    }
+
+    size_t file_size = file.tellg();
+    file.seekg(0, std::ios::beg);
+    std::vector<unsigned char> file_buf(file_size);
+    file.read(reinterpret_cast<char*>(file_buf.data()), file_size);
+    file.close();
+
+    std::cout << "[client] ✅ Loaded file '" << file_path << "' (" << file_size << " bytes)\n";
+
+    // 2️⃣ 创建或重置共享内存（每次 1KB）
+    int shm_fd = shm_open(SHM_NAME, O_CREAT | O_RDWR | O_TRUNC, 0666);
+    if (shm_fd == -1) {
+        perror("shm_open failed");
+        return false;
+    }
+    ftruncate(shm_fd, SHM_SIZE);
+
+    void* shm_ptr = mmap(NULL, SHM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
+    if (shm_ptr == MAP_FAILED) {
+        perror("mmap failed");
+        close(shm_fd);
+        return false;
+    }
+
+    // 3️⃣ 分包结构体定义
+    struct FileChunk {
+        int seq;             // 当前包序号（从0开始）
+        int len;             // 当前包长度
+        int total_chunks;    // 总包数
+        char filename[64];   // 文件名（用于服务端保存）
+        unsigned char data[SHM_SIZE - 80]; // 实际数据（留头部空间）
+    };
+
+    // 4️⃣ 计算总包数
+    const int MAX_DATA_PER_CHUNK = sizeof(FileChunk::data);
+    int total_chunks = (file_size + MAX_DATA_PER_CHUNK - 1) / MAX_DATA_PER_CHUNK;
+
+    size_t bytes_sent = 0;
+    int seq = 0;
+
+    // 5️⃣ 循环分块写入共享内存并发信号
+    while (bytes_sent < file_size) {
+        FileChunk chunk{};
+        chunk.seq = seq;
+        chunk.len = std::min((int)MAX_DATA_PER_CHUNK, (int)(file_size - bytes_sent));
+        chunk.total_chunks = total_chunks;
+
+        // 拷贝文件名（取 basename）
+        std::string base_name = file_path.substr(file_path.find_last_of('/') + 1);
+        strncpy(chunk.filename, base_name.c_str(), sizeof(chunk.filename) - 1);
+
+        // 拷贝当前数据块
+        memcpy(chunk.data, file_buf.data() + bytes_sent, chunk.len);
+
+        // 写入共享内存
+        memcpy(shm_ptr, &chunk, sizeof(chunk));
+
+        // 发送 D-Bus 信号通知服务端
+        NotifyServiceFileChunkReceived(seq, chunk.len);
+
+        std::cout << "[client] 📦 Sent chunk #" << seq
+                  << " (" << chunk.len << " bytes)\n";
+
+        bytes_sent += chunk.len;
+        seq++;
+        usleep(20000); // 控制发送速率（20ms）
+    }
+
+    // 6️⃣ 发送结束信号（len=0 表示文件传输完成）
+    NotifyServiceFileChunkReceived(seq, 0);
+
+    std::cout << "[client] ✅ File send complete: "
+              << total_chunks << " chunks, " << file_size << " bytes.\n";
+
+    // 7️⃣ 清理资源
+    munmap(shm_ptr, SHM_SIZE);
+    close(shm_fd);
+
     return true;
 }
+
+
+
+// 客户端：发送文件块信号（带序号和长度参数）
+void DBusClientProxy::NotifyServiceFileChunkReceived(int seq, int len) {
+    DBusMessage* signal = dbus_message_new_signal(
+        "/com/demo/Object",       // 路径：必须一致
+        "com.demo.Interface",     // 接口名：必须一致
+        "OnFileChunkReceived"     // 信号名
+    );
+
+    dbus_message_append_args(signal,
+                             DBUS_TYPE_INT32, &seq,
+                             DBUS_TYPE_INT32, &len,
+                             DBUS_TYPE_INVALID);
+
+    dbus_connection_send(conn, signal, nullptr);
+    dbus_connection_flush(conn);
+    dbus_message_unref(signal);
+}
+

@@ -15,6 +15,8 @@ public:
     void OnTestStringChanged(std::string param) override;
     void OnTestInfoChanged(TestInfo param) override;
 
+
 private:
     ITestService* service;
+    void SendFile(const std::string& file_path);
 };

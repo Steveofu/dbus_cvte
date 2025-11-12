@@ -30,6 +30,8 @@ CMakeFiles/client.dir/sources/DBusClientProxy.cpp.o: /usr/include/dbus-1.0/dbus/
 CMakeFiles/client.dir/sources/DBusClientProxy.cpp.o: /usr/include/dbus-1.0/dbus/dbus.h
 CMakeFiles/client.dir/sources/DBusClientProxy.cpp.o: /usr/lib/x86_64-linux-gnu/dbus-1.0/include/dbus/dbus-arch-deps.h
 
+CMakeFiles/client.dir/sources/lvgl_display.cpp.o: ../sources/lvgl_display.cpp
+
 CMakeFiles/client.dir/sources/main.cpp.o: ../include/ClientApp.h
 CMakeFiles/client.dir/sources/main.cpp.o: ../include/DBusClientProxy.h
 CMakeFiles/client.dir/sources/main.cpp.o: ../include/ITestListener.h
