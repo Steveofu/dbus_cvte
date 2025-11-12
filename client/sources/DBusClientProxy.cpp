@@ -4,13 +4,14 @@
 #include <iostream>
 #include <fstream>
 #include <cstring>
-
 #include "DBusClientProxy.h"
 #include <iostream>
 #include <algorithm>
 
 #define SHM_NAME "/file_shm"  // 共享内存的名称
 #define SHM_SIZE 1024         // 每次传输1KB数据
+
+
 
 DBusClientProxy::DBusClientProxy() {
     DBusError err;
@@ -25,9 +26,8 @@ DBusClientProxy::DBusClientProxy() {
     }
 }
 
-DBusClientProxy::~DBusClientProxy() {
-    //dbus_connection_unref(conn); // 释放 DBus 连接
-}
+DBusClientProxy::~DBusClientProxy() {}
+
 
 bool DBusClientProxy::callBool(const char* method, bool value) 
 {
@@ -48,6 +48,7 @@ bool DBusClientProxy::callBool(const char* method, bool value)
 
     return true;
 }
+
 
 bool DBusClientProxy::SetTestBool(bool param) {
     return callBool("SetTestBool", param);
@@ -100,7 +101,6 @@ bool DBusClientProxy::SetTestDouble(double value) {
 
     return true;
 }
-
 
 
 
@@ -163,7 +163,6 @@ bool DBusClientProxy::SetTestInfo(TestInfo info) {
 
 
 
-
 bool DBusClientProxy::GetTestBool() {
     DBusMessage* msg = dbus_message_new_method_call(
         "com.demo.Service",
@@ -175,6 +174,7 @@ bool DBusClientProxy::GetTestBool() {
     DBusError err;
     dbus_error_init(&err);
 
+    // 发送消息并等待服务端响应
     DBusMessage* reply = dbus_connection_send_with_reply_and_block(
         conn, msg, 2000, &err
     );
@@ -186,6 +186,7 @@ bool DBusClientProxy::GetTestBool() {
         return false;
     }
 
+    // 从 reply 里取出一个 bool 类型参数（即服务端返回的值）
     dbus_bool_t val = false;
     dbus_message_get_args(reply, &err,
                           DBUS_TYPE_BOOLEAN, &val,
@@ -335,36 +336,41 @@ TestInfo DBusClientProxy::GetTestInfo() {
     info.bool_param = flag;
     info.int_param = number;
     info.double_param = ratio;
-    info.string_param = msg_str ? msg_str : "";
+    info.string_param = msg_str ? std::string(msg_str) : "";
 
     return info;
 }
 
 
-// ------------------------------------
 // 客户端：从文件路径读取内容，分包写入共享内存并通过 D-Bus 通知服务端
-bool DBusClientProxy::SendFile(const std::string& file_path) {
-    // 1️⃣ 读取文件内容到内存
+bool DBusClientProxy::SendFile(const std::string& file_path) 
+{
+    // 读取文件内容到内存
     std::ifstream file(file_path, std::ios::binary | std::ios::ate);
     if (!file.is_open()) {
-        std::cerr << "[client] ❌ Failed to open file: " << file_path << std::endl;
+        std::cerr << "[client]  Failed to open file: " << file_path << std::endl;
         return false;
     }
 
+    // get the size of the file
     size_t file_size = file.tellg();
     file.seekg(0, std::ios::beg);
     std::vector<unsigned char> file_buf(file_size);
+
+    // 强制转换
     file.read(reinterpret_cast<char*>(file_buf.data()), file_size);
     file.close();
 
-    std::cout << "[client] ✅ Loaded file '" << file_path << "' (" << file_size << " bytes)\n";
 
-    // 2️⃣ 创建或重置共享内存（每次 1KB）
+    std::cout << "[client]  Loaded file '" << file_path << "' (" << file_size << " bytes) << successfully \n";
+
+    // 创建或重置共享内存（每次 1KB）
     int shm_fd = shm_open(SHM_NAME, O_CREAT | O_RDWR | O_TRUNC, 0666);
     if (shm_fd == -1) {
         perror("shm_open failed");
         return false;
     }
+
     ftruncate(shm_fd, SHM_SIZE);
 
     void* shm_ptr = mmap(NULL, SHM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0);
@@ -374,57 +380,56 @@ bool DBusClientProxy::SendFile(const std::string& file_path) {
         return false;
     }
 
-    // 3️⃣ 分包结构体定义
-    struct FileChunk {
+    // 分包结构体定义
+    struct FilePack{
         int seq;             // 当前包序号（从0开始）
         int len;             // 当前包长度
-        int total_chunks;    // 总包数
+        int total_packs;    // 总包数
         char filename[64];   // 文件名（用于服务端保存）
         unsigned char data[SHM_SIZE - 80]; // 实际数据（留头部空间）
     };
 
-    // 4️⃣ 计算总包数
-    const int MAX_DATA_PER_CHUNK = sizeof(FileChunk::data);
-    int total_chunks = (file_size + MAX_DATA_PER_CHUNK - 1) / MAX_DATA_PER_CHUNK;
+    // 计算总包数
+    // 每包数据容量
+    const int MAX_DATA_PER_Pack = sizeof(FilePack::data);
+    int total_packs = (file_size + MAX_DATA_PER_Pack - 1) / MAX_DATA_PER_Pack;
 
     size_t bytes_sent = 0;
     int seq = 0;
 
-    // 5️⃣ 循环分块写入共享内存并发信号
+    // 循环分块写入共享内存并发信号
     while (bytes_sent < file_size) {
-        FileChunk chunk{};
-        chunk.seq = seq;
-        chunk.len = std::min((int)MAX_DATA_PER_CHUNK, (int)(file_size - bytes_sent));
-        chunk.total_chunks = total_chunks;
+        FilePack pack{};
+        pack.seq = seq;
+        pack.len = std::min((int)MAX_DATA_PER_Pack, (int)(file_size - bytes_sent));
+        pack.total_packs = total_packs;
 
         // 拷贝文件名（取 basename）
         std::string base_name = file_path.substr(file_path.find_last_of('/') + 1);
-        strncpy(chunk.filename, base_name.c_str(), sizeof(chunk.filename) - 1);
+        strncpy(pack.filename, base_name.c_str(), sizeof(pack.filename) - 1);
 
         // 拷贝当前数据块
-        memcpy(chunk.data, file_buf.data() + bytes_sent, chunk.len);
+        memcpy(pack.data, file_buf.data() + bytes_sent, pack.len);
 
         // 写入共享内存
-        memcpy(shm_ptr, &chunk, sizeof(chunk));
+        memcpy(shm_ptr, &pack, sizeof(pack));
 
         // 发送 D-Bus 信号通知服务端
-        NotifyServiceFileChunkReceived(seq, chunk.len);
+        NotifyServiceFileChunkReceived(seq, pack.len);
 
-        std::cout << "[client] 📦 Sent chunk #" << seq
-                  << " (" << chunk.len << " bytes)\n";
+        std::cout << "[client] Sent pack #" << seq << " (" << pack.len << " bytes)\n";
 
-        bytes_sent += chunk.len;
+        bytes_sent += pack.len;
         seq++;
         usleep(20000); // 控制发送速率（20ms）
     }
 
-    // 6️⃣ 发送结束信号（len=0 表示文件传输完成）
+    // 发送结束信号（len=0 表示文件传输完成）
     NotifyServiceFileChunkReceived(seq, 0);
 
-    std::cout << "[client] ✅ File send complete: "
-              << total_chunks << " chunks, " << file_size << " bytes.\n";
+    std::cout << "[client] File send complete: " << total_packs << " packs, " << file_size << " bytes.\n";
 
-    // 7️⃣ 清理资源
+    // 理资源
     munmap(shm_ptr, SHM_SIZE);
     close(shm_fd);
 

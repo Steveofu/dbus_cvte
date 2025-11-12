@@ -20,10 +20,10 @@
 
 
 // 包结构体定义 —— 与客户端保持一致
-struct FileChunk {
+struct FilePack {
     int seq;             // 当前包序号
     int len;             // 当前包长度（单位：字节）
-    int total_chunks;    // 总包数
+    int total_packs;    // 总包数
     char filename[64];   // 文件名
     unsigned char data[SHM_SIZE - 80]; // 实际数据
 };
@@ -33,11 +33,20 @@ DBusService::DBusService() {
     DBusError err;
     dbus_error_init(&err);
 
+    lastInt = 0;
+    lastBool = false;
+    lastDouble = 0.0;
+    lastString = "default";
+    lastTestInfo = {false, 0, 0.0, "unset"};
+
     conn = dbus_bus_get(DBUS_BUS_SESSION, &err);
+
     if (dbus_error_is_set(&err)) {
         std::cerr << "[server] Failed to connect to D-Bus session: " << err.message << std::endl;
         dbus_error_free(&err);
-    } else {
+    } 
+    else 
+    {
         dbus_bus_request_name(conn, "com.demo.Service", DBUS_NAME_FLAG_REPLACE_EXISTING, &err);
         std::cout << "[server] Service started\n"<<std::endl;
 
@@ -46,12 +55,12 @@ DBusService::DBusService() {
         const char* match_rule = "type='signal',path='/com/demo/Object',interface='com.demo.Interface',member='OnFileChunkReceived'";
         dbus_bus_add_match(conn, match_rule, &err);
 
-        if (dbus_error_is_set(&err)) {
-            std::cerr << "[server] dbus_bus_add_match failed: " << err.message << std::endl;
-            dbus_error_free(&err);
-        } else {
-            std::cout << "[server] Added match rule for OnFileChunkReceived\n" << std::endl;
-        }
+        // if (dbus_error_is_set(&err)) {
+        //     std::cerr << "[server] dbus_bus_add_match failed: " << err.message << std::endl;
+        //     dbus_error_free(&err);
+        // } else {
+        //     std::cout << "[server] Added match rule for OnFileChunkReceived\n" << std::endl;
+        // }
     }
 }
 
@@ -79,8 +88,9 @@ void DBusService::broadcastInt(int v) {
     dbus_connection_send(conn, msg, nullptr);
     dbus_connection_flush(conn);
     dbus_message_unref(msg);
+    std::cout << "[server] broadcastInt(" << v << ")\n";
+    std::cout<< std::endl;
 }
-
 
 void DBusService::broadcastBool(bool v) {
     DBusMessage* msg = dbus_message_new_signal(
@@ -98,7 +108,10 @@ void DBusService::broadcastBool(bool v) {
     }
     dbus_connection_flush(conn);
     dbus_message_unref(msg);  // 清理消息
+    std::cout << "[server] broadcastBool(" << v << ")\n";
+    std::cout<< std::endl;
 }
+
 
 bool DBusService::SetTestBool(bool param) {
     std::cout << "[server] SetTestBool(" << param << ")\n";
@@ -106,7 +119,6 @@ bool DBusService::SetTestBool(bool param) {
     broadcastBool(param);  // 广播新值
     return true;
 }
-
 
 
 bool DBusService::SetTestDouble(double param) {
@@ -122,7 +134,7 @@ void DBusService::broadcastDouble(double v) {
         "com.demo.Interface",     // 信号接口
         "OnTestDoubleChanged"     // 信号名称
     );
-
+    
     dbus_message_append_args(msg,
                              DBUS_TYPE_DOUBLE, &v,   // 传递 double 类型参数
                              DBUS_TYPE_INVALID);     // 结束参数列表
@@ -132,6 +144,8 @@ void DBusService::broadcastDouble(double v) {
     }
     dbus_connection_flush(conn);
     dbus_message_unref(msg);  // 清理消息
+    std::cout << "[server] broadcastDouble(" << v << ")\n";
+    std::cout<< std::endl;
 }
 
 bool DBusService::SetTestString(std::string param) {
@@ -144,7 +158,6 @@ bool DBusService::SetTestString(std::string param) {
     broadcastString(param);
     return true;
 }
-
 
 void DBusService::broadcastString(std::string v) {
     if (v.empty()) {
@@ -170,51 +183,72 @@ void DBusService::broadcastString(std::string v) {
     }
     dbus_connection_flush(conn);
     dbus_message_unref(msg);  // 清理消息
+    std::cout << "[server] broadcastString(" << v << ")\n";
+    std::cout<< std::endl;
 }
 
 
-
 bool DBusService::SetTestInfo(TestInfo info) {
-    std::cout << "[server] SetTestInfo(" 
-              << "bool_param: " << info.bool_param 
-              << ", int_param: " << info.int_param
-              << ", double_param: " << info.double_param 
-              << ", string_param: " << info.string_param 
+    // 防御性检查：如果结构体内字符串为空，输出警告但不直接返回
+    if (info.string_param.empty()) {
+        std::cerr << "[server] Warning: string_param is empty in SetTestInfo()\n";
+    }
+
+    //  打印收到的完整结构体信息
+    std::cout << "[server] SetTestInfo("
+              << "bool_param: "   << info.bool_param
+              << ", int_param: "  << info.int_param
+              << ", double_param: " << info.double_param
+              << ", string_param: "
+              << (info.string_param.empty() ? "(empty)" : info.string_param)
               << ")\n";
-    
-    // 存储结构体信息
+
+    // 存储结构体，用于后续 GetTestInfo() 调用
     lastTestInfo = info;
 
-    // 广播信息变化
+    // 广播通知客户端结构体已更新
     broadcastTestInfo(info);
 
     return true;
 }
 
+
+
 void DBusService::broadcastTestInfo(TestInfo info) {
-    DBusMessage* msg = dbus_message_new_signal(
-        "/com/demo/Object",         // 信号的路径
-        "com.demo.Interface",       // 信号的接口
-        "OnTestInfoChanged"         // 信号的名称
+    
+ DBusMessage* msg = dbus_message_new_signal(
+        "/com/demo/Object",
+        "com.demo.Interface",
+        "OnTestInfoChanged"
     );
 
-    // 确保传递的 bool 值为合法的值 (0 或 1)
-    dbus_bool_t bool_value = (info.bool_param) ? TRUE : FALSE;  // 确保是 0 或 1
+    dbus_bool_t bool_value = (info.bool_param != 0) ? TRUE : FALSE;
 
-    // 将结构体的各个字段作为参数附加到信号中
+    // ✅ 获取字符串常量指针
+    const char* str_data = info.string_param.empty() ? "" : info.string_param.c_str();
+
+    // ✅ 注意：DBus 会立即复制字符串内容，不需要你分配或释放
     dbus_message_append_args(msg,
-                             DBUS_TYPE_BOOLEAN, &bool_value,
-                             DBUS_TYPE_INT32, &info.int_param,
-                             DBUS_TYPE_DOUBLE, &info.double_param,
-                             DBUS_TYPE_STRING, info.string_param.empty() ? "" : info.string_param.c_str(),  // 处理空字符串
-                             DBUS_TYPE_INVALID);  // 结束参数列表
+        DBUS_TYPE_BOOLEAN, &bool_value,
+        DBUS_TYPE_INT32, &info.int_param,
+        DBUS_TYPE_DOUBLE, &info.double_param,
+        DBUS_TYPE_STRING, &str_data,   // ✅ &str_data：指向稳定的 std::string 内部缓冲
+        DBUS_TYPE_INVALID);
 
-    // 发送信号
     if (!dbus_connection_send(conn, msg, nullptr)) {
         std::cerr << "[server] Failed to send broadcast signal for TestInfo!" << std::endl;
     }
+
     dbus_connection_flush(conn);
-    dbus_message_unref(msg);  // 清理消息
+    dbus_message_unref(msg);
+
+    std::cout << "[server] broadcastTestInfo("
+              << "bool_param=" << info.bool_param << ", "
+              << "int_param=" << info.int_param << ", "
+              << "double_param=" << info.double_param << ", "
+              << "string_param=" << (info.string_param.empty() ? "(empty)" : info.string_param)
+              << ")\n" << std::endl;
+    std::cout<< std::endl;
 }
 
 
@@ -225,8 +259,10 @@ double DBusService::GetTestDouble() { return lastDouble; }
 std::string DBusService::GetTestString() {
     return lastString.empty() ? "default_string" : lastString;
 }
+TestInfo DBusService::GetTestInfo() {
+    return lastTestInfo;  // 不要直接返回局部临时对象
+}
 
-TestInfo DBusService::GetTestInfo() { return {true,1,2.0,"x"}; }
 
 bool DBusService::SendFile(unsigned char*, size_t) { return true; }
 
@@ -235,6 +271,7 @@ bool DBusService::SendFile(unsigned char*, size_t) { return true; }
 std::string DBusService::compute_md5(const std::string& path) {
     unsigned char digest[MD5_DIGEST_LENGTH];
     MD5_CTX ctx;
+
     MD5_Init(&ctx);
 
     std::ifstream file(path, std::ios::binary);
@@ -245,6 +282,7 @@ std::string DBusService::compute_md5(const std::string& path) {
         file.read(buffer, sizeof(buffer));
         MD5_Update(&ctx, buffer, file.gcount());
     }
+
     file.close();
 
     MD5_Final(digest, &ctx);
@@ -252,15 +290,15 @@ std::string DBusService::compute_md5(const std::string& path) {
     std::ostringstream oss;
     for (int i = 0; i < MD5_DIGEST_LENGTH; ++i)
         oss << std::hex << std::setw(2) << std::setfill('0') << (int)digest[i];
+
     return oss.str();
 }
 
-// ------------------------------
+
 // 服务端：分包接收 + 重组 + 校验
-// ------------------------------
 bool DBusService::ReceiveFileChunk(int seq, int len)
 {
-    // ✅ 文件传输结束信号（len == 0）
+    // 文件传输结束信号（len == 0）
     if (len == 0) {
         std::cout << "[server] File transfer complete. Calculating MD5...\n";
 
@@ -288,7 +326,7 @@ bool DBusService::ReceiveFileChunk(int seq, int len)
         for (int i = 0; i < MD5_DIGEST_LENGTH; ++i)
             md5_str << std::hex << std::setw(2) << std::setfill('0') << (int)md5_result[i];
 
-        std::cout << "[server] ✅ MD5: " << md5_str.str() << "\n";
+        std::cout << "[server] MD5: " << md5_str.str() << "\n";
         std::cout<< std::endl;
 
         // 删除共享内存
@@ -296,14 +334,14 @@ bool DBusService::ReceiveFileChunk(int seq, int len)
         return true;
     }
 
-    // ✅ 打开共享内存（客户端已创建）
+    // 打开共享内存（客户端已创建）
     int shm_fd = shm_open(SHM_NAME, O_RDWR, 0666);
     if (shm_fd == -1) {
         perror("shm_open failed");
         return false;
     }
 
-    // ✅ 映射共享内存
+    // 映射共享内存
     void* shm_ptr = mmap(NULL, SHM_SIZE, PROT_READ, MAP_SHARED, shm_fd, 0);
     if (shm_ptr == MAP_FAILED) {
         perror("mmap failed");
@@ -311,22 +349,23 @@ bool DBusService::ReceiveFileChunk(int seq, int len)
         return false;
     }
 
-    // ✅ 从共享内存中取出包数据
-    FileChunk chunk{};
-    memcpy(&chunk, shm_ptr, sizeof(FileChunk));
+    // 从共享内存中取出包数据
+    FilePack pack{};
+    memcpy(&pack, shm_ptr, sizeof(FilePack));
 
-    // ✅ 确保保存目录存在
+    // 确保保存目录存在
     system("mkdir -p received_files");
 
-    // ✅ 构建文件路径（临时保存）
+    // 构建文件路径（临时保存）
+    
     std::string file_path = "received_files/tmp_received";
 
-    // ✅ 打印当前包信息
-    std::cout << "[server] Received chunk #" << chunk.seq
-              << " (" << chunk.len << " bytes of "
-              << chunk.total_chunks << " total)\n";
+    // 打印当前包信息
+    std::cout << "[server] Received pack #" << pack.seq
+              << " (" << pack.len << " bytes of "
+              << pack.total_packs << " total)\n";
 
-    // ✅ 追加写入文件
+    // 追加写入文件
     std::ofstream ofs(file_path, std::ios::binary | std::ios::app);
     if (!ofs.is_open()) {
         std::cerr << "[server] Failed to open output file.\n";
@@ -335,10 +374,10 @@ bool DBusService::ReceiveFileChunk(int seq, int len)
         return false;
     }
 
-    ofs.write(reinterpret_cast<char*>(chunk.data), chunk.len);
+    ofs.write(reinterpret_cast<char*>(pack.data), pack.len);
     ofs.close();
 
-    // ✅ 清理共享内存映射
+    // 清理共享内存映射
     munmap(shm_ptr, SHM_SIZE);
     close(shm_fd);
 
@@ -354,10 +393,10 @@ void DBusService::StartLoop() {
         if (!msg) continue;
 
  
-        int msg_type = dbus_message_get_type(msg);
-        const char* member = dbus_message_get_member(msg);
-        const char* iface = dbus_message_get_interface(msg);
-        const char* path = dbus_message_get_path(msg);
+        // int msg_type = dbus_message_get_type(msg);
+        // const char* member = dbus_message_get_member(msg);
+        // const char* iface = dbus_message_get_interface(msg);
+        // const char* path = dbus_message_get_path(msg);
 
         // std::cout << "[server] Message: type=" << msg_type
         //   << ", interface=" << (iface ? iface : "null")
@@ -449,8 +488,10 @@ void DBusService::StartLoop() {
 
             DBusMessage* reply = dbus_message_new_method_return(msg);
             DBusMessageIter args;
+
+            dbus_bool_t dbus_bool = value ? TRUE : FALSE;  // 使用 D-Bus 定义的 TRUE/FALSE
             dbus_message_iter_init_append(reply, &args);
-            dbus_message_iter_append_basic(&args, DBUS_TYPE_BOOLEAN, &value);
+            dbus_message_iter_append_basic(&args, DBUS_TYPE_BOOLEAN, &dbus_bool);
 
             if (!dbus_connection_send(conn, reply, nullptr)) {
                 std::cerr << "[server] Failed to send method return for GetTestBool!" << std::endl;
@@ -544,28 +585,29 @@ void DBusService::StartLoop() {
             dbus_message_unref(reply);
         }
 
-
-
         // 匹配方法调用 SetTestInfo
         else if (dbus_message_is_method_call(msg, "com.demo.Interface", "SetTestInfo")) {
             TestInfo val;
             DBusError err;
             dbus_error_init(&err);
-
-            dbus_message_get_args(msg, &err,
-                                  DBUS_TYPE_BOOLEAN, &val.bool_param,
-                                  DBUS_TYPE_INT32, &val.int_param,
-                                  DBUS_TYPE_DOUBLE, &val.double_param,
-                                  DBUS_TYPE_STRING, &val.string_param,
-                                  DBUS_TYPE_INVALID);
-
-            if (dbus_error_is_set(&err)) {
-                std::cerr << "[server] Error getting arguments for SetTestInfo: " << err.message << std::endl;
-                dbus_error_free(&err);
-                continue;
+            
+            const char* str_param;  // 中间变量，接收字符串指针
+            if (!dbus_message_get_args(msg, &err,
+                                        DBUS_TYPE_BOOLEAN, &val.bool_param,
+                                        DBUS_TYPE_INT32, &val.int_param,
+                                        DBUS_TYPE_DOUBLE, &val.double_param,
+                                        DBUS_TYPE_STRING, &str_param,  // 这里传 const char**
+                                        DBUS_TYPE_INVALID)) {
+                    std::cerr << "[server] Error getting arguments for SetTestInfo: " << err.message << std::endl;
+                    dbus_error_free(&err);
+                    dbus_message_unref(msg);
+                    continue;
             }
 
-            SetTestInfo(val);
+                // 将 const char* 赋值给 std::string（自动处理空字符串）
+                val.string_param = str_param ? str_param : "";
+
+                SetTestInfo(val);  // 调用处理方法
         }
 
         // 匹配方法调用 GetTestInfo
@@ -573,12 +615,24 @@ void DBusService::StartLoop() {
             TestInfo value = GetTestInfo();
 
             DBusMessage* reply = dbus_message_new_method_return(msg);
+            if (!reply) {  // 增加消息创建失败的检查
+                std::cerr << "[server] Failed to create reply for GetTestInfo!" << std::endl;
+                dbus_message_unref(msg);
+                continue;
+            }
+
             DBusMessageIter args;
+
+            dbus_bool_t dbus_bool = value.bool_param ? TRUE : FALSE;  // 使用 D-Bus 定义的 TRUE/FALSE
             dbus_message_iter_init_append(reply, &args);
-            dbus_message_iter_append_basic(&args, DBUS_TYPE_BOOLEAN, &value.bool_param);
+            dbus_message_iter_append_basic(&args, DBUS_TYPE_BOOLEAN, &dbus_bool);
+
             dbus_message_iter_append_basic(&args, DBUS_TYPE_INT32, &value.int_param);
             dbus_message_iter_append_basic(&args, DBUS_TYPE_DOUBLE, &value.double_param);
-            dbus_message_iter_append_basic(&args, DBUS_TYPE_STRING, value.string_param.c_str());
+
+            const char* str_data = value.string_param.c_str();  // 先获取字符串指针
+            dbus_message_iter_append_basic(&args, DBUS_TYPE_STRING, &str_data);  // 关键：传 &str_data
+           
 
             if (!dbus_connection_send(conn, reply, nullptr)) {
                 std::cerr << "[server] Failed to send method return for GetTestInfo!" << std::endl;

@@ -9,8 +9,8 @@ pkg_check_modules(DBUS REQUIRED dbus-1)
 
 include_directories(
     ${PROJECT_SOURCE_DIR}/include
-
 )
+
 link_directories(${DBUS_LIBRARY_DIRS})
 
 
